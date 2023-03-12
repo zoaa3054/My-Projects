@@ -1,0 +1,121 @@
+#include <stdio.h>
+#include <stdbool.h>
+#include <stdlib.h>
+
+typedef struct {
+    int r;
+    int c;
+}array;
+array a;
+
+int n;
+
+void printArr(double **arr){
+    for (int i=0; i<a.r; i++){
+        for (int j=0; j<a.c; j++){
+            printf("%.4lf ",arr[i][j]);
+        }
+        printf("\n");
+    }
+}
+
+void readArr(double **arr){
+    for (int i=0; i<a.r; i++){
+        for (int j=0; j<a.c; j++){
+            scanf("%lf",&arr[i][j]);
+        }
+    }
+}
+
+void readingNodeNum (){
+    char skip_ch;
+    printf("Enter Number of Nodes Please : ");
+    scanf("%d", &n);
+    if (n<=0){
+        printf("Error! Invalid Number; Please Enter Valid number .... ");
+        readingNodeNum;
+    }
+    do
+            {
+                scanf("%c",&skip_ch);
+            }while(skip_ch != '\n');
+}
+
+void divideRow (double **arr, int r, double n, int start){
+    for (int j=start; j<a.c; j++){
+        arr[r][j] /= n;
+    }
+}
+
+void swapRows (double **arr, int r1, int r2){
+    double temp;
+    for (int j=0; j<a.c; j++){
+        temp = arr[r1][j];
+        arr[r1][j] = arr[r2][j];
+        arr[r2][j] = temp;
+    }
+}
+
+bool getPivot (double **arr,int *pivotR, int *pivotC, int r, int c){
+    bool check;
+    double pivotValue;
+    if (((*pivotR)<=a.r-1) && ((*pivotC)<=a.c-1)){
+        if (arr[r][c] != 0 ){     //pivot found
+            pivotValue = arr[r][c];
+            if ((*pivotR) != r){     //pivot is not in supposed row
+                swapRows(arr, r, *pivotR);
+                r = (*pivotR);
+            }
+            (*pivotR) = r;
+            (*pivotC) = c;
+            divideRow(arr, r, pivotValue, *pivotC);
+            check = true;
+        }
+        else {     //pivot not found
+            if (r < a.r-1){     //searching for pivot vetrically
+                getPivot(arr, pivotR, pivotC, r+1, c);
+                return 1;
+            }
+            else if (c < a.c-1){     //searching for pivot horizonatally
+                getPivot(arr, pivotR, pivotC, *pivotR, c+1);
+                return 1;
+            }
+            else {     //end of array
+                check = false;
+            }
+        }
+    }
+    return check;
+}
+
+void RREF (double **arr, int pivotR, int pivotC){
+    double f, b;
+    int r = pivotR;
+    int c = pivotC;
+    bool checkPivot = getPivot (arr, &pivotR, &pivotC, r, c);
+    //forward elimination
+    if (checkPivot){
+        for (int i= pivotR+1; i<a.r; i++){
+            if (arr[i][pivotC] != 0){
+                f=arr[i][pivotC];
+                for (int j=pivotC; j<a.c; j++){
+                    arr[i][j]+=(-1 * f * arr[pivotR][j]);
+                }
+            }
+        }
+        RREF(arr, pivotR+1, pivotC+1);
+    }
+    else{     
+        return;
+    }
+    //back elimination
+    for (int i=pivotR-1; i>=0; i--){
+        b=arr[i][pivotC];
+        for (int j=pivotC; j<a.c; j++){
+            arr[i][j]+=(-1 * b * arr[pivotR][j]);
+        }
+    }
+}
+
+
+
