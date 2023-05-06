@@ -1,0 +1,1630 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <windows.h>
+#include <time.h>
+#include <conio.h>
+#include <stdbool.h>
+//              player 1 is red                  player 2 is yellow
+//              In case of human Vs. computer --> computer is player 2
+
+//*********************************************************************Game Structures' initialization ::
+typedef struct {
+    int hr;
+    int min;
+    int sec;
+    int flag;
+}timer;
+
+typedef struct {
+    int height ;
+    int width ;
+    int heighScores ;
+    time_t start_date_time;
+    time_t end_date_time;
+    timer timer;
+}config;
+
+typedef struct {
+    int r;
+    int c;
+}index;
+
+typedef struct {
+    char name[1082];
+    char color[7];
+    int score;
+    int numOfTurns;
+    int L;
+    index locations[676];
+}player;
+//********************************************************************//
+
+//****************************************** game configurations, player 1 & 2 and column selected initialization as global variables ::
+config gameConfig={.height=9, .width=7, .heighScores=10};
+player player_1={.L=0};
+player player_2={.L=0};
+char column[];
+int num_of_undoes=0;
+FILE *players_scores;
+FILE *game_saved1;
+FILE *game_saved2;
+FILE *game_saved3;
+bool computer_check=false;
+//**********************************************************************************//
+//***********************************************Game Functions***********************************//
+void SetColor();
+void checking_column_availibility();
+void appendInColumn();
+void printing_header();
+void printing_grid();
+void playerInfo();
+void update();
+void Swipping_Turns_vs_human();
+void Swipping_Turns_vs_Computer();
+void beep_at_scoring();
+void scores();
+void showing_final_score();
+void print_scan_name_of_winner();
+void redo();
+void undo();
+void game_intro();
+void game_end();
+void mainMenu();
+void gameMode();
+void scan_gameConfig();
+void human();
+void vsHuman_game();
+void computer();
+void lower_char();
+void back_to_main_menu();
+void topPlayersDisplay();
+int check_name_usage();
+player* read_array();
+void append_name_score_in_file();
+void updating_scoresFile_data();
+void write_in_file();
+void save_quit();
+void save_game();
+void save_game_in_file1();
+void save_game_in_file2();
+void save_game_in_file3();
+void loadGame();
+void Loaded_Game();
+void load_game_from_file1();
+void load_game_from_file2();
+void load_game_from_file3();
+void checkConfig();
+int StringOccurrences();
+void bubble_sort();
+void quit();
+//*****************************************************//
+
+int main()
+{
+    game_intro();
+    mainMenu();
+
+    return 0;
+}
+
+//*******************************************************************Coloring Function ::
+void SetColor(int ForgC)
+{
+     WORD wColor;
+     //This handle is needed to get the current background attribute
+
+     HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+     CONSOLE_SCREEN_BUFFER_INFO csbi;
+     //csbi is used for wAttributes word
+
+     if(GetConsoleScreenBufferInfo(hStdOut, &csbi))
+     {
+          //To mask out all but the background attribute, and to add the color
+          wColor = (csbi.wAttributes & 0xF0) + (ForgC & 0x0F);
+          SetConsoleTextAttribute(hStdOut, wColor);
+     }
+     return;
+}
+//************************************************************************//
+
+
+//***********************************************************************Checking the column weither it is found or not , full or not , one from the menu keys of not ::
+void checking_column_availibility(char a[gameConfig.height][gameConfig.width],char column_index[gameConfig.width][3], int *check, int player_num,int turns){
+    if(strcmp("u",column)==0){
+        undo(a,player_num, check);
+    }
+    else if (strcmp("r",column)==0){
+        redo(a,player_num);
+    }
+    else if (strcmp("s",column)==0){
+        save_quit(a, column_index);
+    }
+    else if (strcmp("q", column)==0){
+        quit();
+    }
+    else{
+        for (int i=0; i<gameConfig.width; i++){
+            if(strcmp(column_index[i],column)==0){
+                if(a[0][i]!=' '){
+                    printf("! Column is Full, Please Select another one....\n");
+                    Beep(800,800);
+                    return;
+                }else{
+                    *check=1;
+                    num_of_undoes=0;               // For Blocking redoes
+                    return;
+                }
+            }
+        }
+        printf("! Not Available Column; Please Enter column from the above.... \n");
+        Beep(750, 800);
+    }
+}
+//*************************************************************************//
+//*************************************************************************************************************Putting coin in column ::
+void appendInColumn(char a[gameConfig.height][gameConfig.width],int player,char column_index[gameConfig.width][3], int turns){
+    for (int i=0; i<gameConfig.width; i++){
+        if(strcmp(column_index[i],column)==0){     //searching for selected column
+            for (int k=gameConfig.height-1; k>=0; k--){
+                if (a[k][i]==' '){
+                    if (player==1){               //putting coin of player 1
+                        a[k][i]=178;
+                        player_1.locations[player_1.L].r=k;
+                        player_1.locations[player_1.L].c=i;
+                        player_1.L++;
+                    }
+                    if (player==2){            //putting coin of player 2
+                        a[k][i]=219;
+                        player_2.locations[player_2.L].r=k;
+                        player_2.locations[player_2.L].c=i;
+                        player_2.L++;
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+    }
+}
+
+//****************************************************************//
+//************************************************************** Printing header of the game [menu of options] ::
+void printing_header(){
+    printf(">Undo [click u]  >Redo [click r]  >Quit [click q]  >Save & Quit [click s]    ");
+    SetColor(9);
+    printf("Started at--> %s  \n", ctime(&gameConfig.start_date_time));
+    SetColor(7);
+}
+//****************************************************************************//
+//****************************************************************Initializing Column Indexes :;
+void column_index_init(char column_index[gameConfig.width][3],int index){
+    for (int i=97; (index<gameConfig.width)&&(i<=122); i++){
+        for (int j=97; (index<gameConfig.width)&&(j<=122); j++){
+            column_index[index][0]=(char)i;
+            column_index[index][1]=(char)j;
+            column_index[index][2]='\0';
+
+            index++;
+        }
+    }
+}
+//**********************************************//
+//***************************************************************************************************************Printing gride ::
+void printing_grid(char a[gameConfig.height][gameConfig.width], char column_index[gameConfig.width][3]){
+    printf("\n");
+
+    printf("  ");
+    int index=0;
+    for (int i1=97; i1<=122 && index<gameConfig.width; i1++){   //printing column index
+        for (int i2=97; i2<=122 && index<gameConfig.width; i2++){
+            printf("%c%c  ", i1, i2);
+            index++;
+        }
+    }
+   /* for (int i=0; i<gameConfig.width; i++){
+        for (int j=0; j<3; j++){
+            printf("%c ", column_index[i][j]);
+        }
+        printf("\n");
+    }
+*/
+    printf("\n");
+    for (int i=0; i<gameConfig.height; i++){    //printing grid
+        printf("%c ",186);
+        for (int j=0; j<gameConfig.width; j++){
+            if (a[i][j]==(char)178){
+                SetColor(4);
+                printf("%c", a[i][j]);
+                SetColor(7);
+            }
+            else if (a[i][j]==(char)219){
+                SetColor(14);
+                printf("%c", a[i][j]);
+                SetColor(7);
+            }
+            else{
+                printf("%c", a[i][j]);
+            }
+            printf(" %c ", 186);
+        }
+
+        printf ("\n");
+        for (int j=0; j<gameConfig.width; j++)printf("%c%c%c%c", 206,205,205,205);
+        printf("%c", 206);
+        printf("\n");
+
+    }
+}
+//*********************************************************************************//
+//*********************************************************************************************************Swiping turns of players in Vs human game::
+void Swipping_Turns_vs_human(char a[gameConfig.height][gameConfig.width],int turns,char column_index[gameConfig.width][3]){
+   for (int t=turns; t>=0; t--){
+        playerInfo(t);
+        int check=0;
+        if (t==0){
+            //stop_timer=0;
+            //update_timer(stop_timer);
+            printf("\n");
+            return;
+        }else{
+            if (t%2==0){              //player 1 turn :
+                while(check==0){
+                    SetColor(4);
+                    printf("Player 1 turn: ");
+                    SetColor(7);
+                    Beep(800, 250);
+                    scanf("%s", &column);
+                    checking_column_availibility(a,column_index,&check, 1,t);
+                }
+                if(check== -1)
+                    t+=2;
+                else if (check==2);
+                else
+                    appendInColumn(a,1,column_index, t);
+            }if(t%2!=0){                      //player 2 turn :
+                while (check==0){
+                    SetColor(14);
+                    printf("Player 2 turn: ");
+                    SetColor(7);
+                    Beep(800, 250);
+                    scanf("%s", &column);
+                    checking_column_availibility(a,column_index, &check, 2,t);
+                }
+                if(check== -1)
+                    t+=2;
+                else if (check==2);
+                else
+                    appendInColumn(a,2, column_index, t);
+            }
+            scores(a);
+            update(a,column_index );
+
+        }
+   }
+}
+//*******************************************************************//
+//**************************************************************Swiping turns of players in Vs computer game::
+void Swipping_Turns_vs_Computer(char a[gameConfig.height][gameConfig.width],int turns,char column_index[gameConfig.width][3]){
+        int computer_turn_index;
+
+        srand (time(NULL));
+        for (int t=turns; t>=0; t--){
+        playerInfo(t);
+        int check=0;
+        if (t==0){
+            //stop_timer=0;
+            //update_timer(stop_timer);
+            printf("\n");
+            return;
+        }else{
+            if (t%2==0){              //player 1 turn :
+                while(check==0){
+                    SetColor(4);
+                    printf("Player 1 turn: ");
+                    SetColor(7);
+                    Beep(800, 250);
+                    scanf("%s", &column);
+                    checking_column_availibility(a,column_index,&check, 1,t);
+                }
+                if(check== -1)
+                    t+=2;
+                else if (check==2);
+                else
+                    appendInColumn(a,1,column_index, t);
+            }if(t%2!=0){                      //player 2 turn :
+                while (check==0){
+                    SetColor(14);
+                    printf("Player 2 turn: ");
+                    SetColor(7);
+                    Beep(800, 250);
+                    computer_turn_index=rand() % (gameConfig.width);
+                    strcpy(column, column_index[computer_turn_index]);
+                    checking_column_availibility(a,column_index, &check, 2,t);
+                }
+                if(check== -1)
+                    t+=2;
+                else if (check==2);
+                else
+                    appendInColumn(a,2, column_index, t);
+            }
+            scores(a);
+            update(a,column_index );
+
+        }
+   }
+
+}
+//************************************************************//
+//****************************************printing player information  under his scanning turn command ::
+void playerInfo(int turns){
+    if (turns%2==0){
+        SetColor(4);
+        printf("%d turns remain\n",player_1.numOfTurns);
+        printf("your score %d\n", player_1.score);
+        SetColor(7);
+        player_1.numOfTurns--;
+    }
+    if (turns%2!=0){
+        SetColor(14);
+        printf("%d turns remain\n", player_2.numOfTurns);
+        printf("your score %d\n", player_2.score);
+        SetColor(7);
+        player_2.numOfTurns--;
+    }
+}
+//*********************************************************************************//
+
+
+//***********************************************************************************************************Updating screen ::
+void update(char a[gameConfig.height][gameConfig.width],char column_index[gameConfig.width][3]){
+    system("cls");
+    printing_header();
+
+    printing_grid(a,column_index);
+
+}
+//*********************************************************************************//
+//*****************************************************************************Calculating score of each player in each tern (rebeat counting each time) ::
+void scores(char a[gameConfig.height][gameConfig.width]){
+    player_1.score=0; player_2.score=0;     //ignoring checked squares
+    for (int i=0; i<gameConfig.height; i++){     //testing rows
+        for (int j=0; j<=gameConfig.width-4; j++){
+            if((a[i][j]==a[i][j+1])&&(a[i][j+1]==a[i][j+2])&&(a[i][j+2]==a[i][j+3])){
+                if (a[i][j]==(char)178){
+                    player_1.score++;
+                    beep_at_scoring();
+                }
+                if(a[i][j]==(char)219){
+                    player_2.score++;
+                    beep_at_scoring();
+                }
+            }
+        }
+    }
+    for (int j=0; j<gameConfig.width; j++){     //testing columns
+        for (int i=0; i<=gameConfig.height-4; i++){
+            if((a[i][j]==a[i+1][j])&&(a[i+1][j]==a[i+2][j])&&(a[i+2][j]==a[i+3][j])){
+                if (a[i][j]==(char)178){
+                    player_1.score++;
+                    beep_at_scoring();
+                }
+                if(a[i][j]==(char)219){
+                    player_2.score++;
+                    beep_at_scoring();
+                }
+            }
+        }
+    }
+    for (int i=0; i<gameConfig.height; i++){     //testing diagonals --> y=x
+        for (int j=0; (j<gameConfig.width)&&(j+3<gameConfig.width)&&(i+3<gameConfig.height);j++){
+            if ((a[i][j]==a[i+1][j+1])&&(a[i+1][j+1]==a[i+2][j+2])&&(a[i+2][j+2]==a[i+3][j+3])){
+                 if (a[i][j]==(char)178){
+                    player_1.score++;
+                    beep_at_scoring();
+                }
+                if(a[i][j]==(char)219){
+                    player_2.score++;
+                    beep_at_scoring();
+                }
+            }
+        }
+    }
+    for (int i=gameConfig.height-1; i>=0; i--){     //testing diagonals --> y=-x
+        for (int j=0; (j<gameConfig.width)&&(j+3<gameConfig.width)&&(i-3>=0);j++){
+            if ((a[i][j]==a[i-1][j+1])&&(a[i-1][j+1]==a[i-2][j+2])&&(a[i-2][j+2]==a[i-3][j+3])){
+                 if (a[i][j]==(char)178){
+                    player_1.score++;
+                    beep_at_scoring();
+                }
+                if(a[i][j]==(char)219){
+                    player_2.score++;
+                    beep_at_scoring();
+                }
+            }
+        }
+    }
+}
+//***************************************************************************************//
+//*********************************************************Producing Beeb Sound when scorring ::
+void beep_at_scoring(){
+    static int score1=0;
+    static int score2=0;
+    if (score1<player_1.score){
+        score1=player_1.score;
+        Beep(1960,200);     //sol
+        Beep(2616,200);      //do
+        Beep(2469,2*266.6);     //si
+
+    }
+    else if (score2<player_2.score){
+        score2=player_2.score;
+        Beep(1960,200);     //sol
+        Beep(2616,200);      //do
+        Beep(2469,2*266.6);     //si
+
+    }
+}
+//***************************************************************************//
+
+//********************************************************************************Printing final information of the game at the end  ::
+void showing_final_score(char a[gameConfig.height][gameConfig.width],char column_index[gameConfig.width][3]){
+    system("cls");
+    gameConfig.end_date_time=time(NULL);
+    SetColor(9);
+    printf("Started at--> %s", ctime(&gameConfig.start_date_time));
+
+    SetColor(13);
+    printf("Ended at--> %s  ", ctime(&gameConfig.end_date_time));
+    SetColor(7);
+
+    printing_grid(a,column_index);
+    SetColor(4);
+    printf("Player1's Score is %d  ", player_1.score);
+    SetColor(14);
+    printf("Player2's Score is %d", player_2.score);
+    SetColor(7);
+
+}
+//*************************************************************************************//
+//*************************************************************************Printing and Scaning Name of the winner (or both in case of drawal) ::
+void print_scan_name_of_winner(){
+     int check;          //checking weither name has been appended or not
+    printf("\n");
+    SetColor(10);
+    if (player_1.score>player_2.score){
+        printf("       *****Player1 Wins!*****\n");
+        Beep(2469,2*266.6);     //si
+        Beep(2616,2*266.6);      //do
+        SetColor(4);
+        printf(">Player1, Enter Your Name Please: ");
+        scanf(" %[^\n]s",&player_1.name);
+        check=check_name_usage(1);
+        updating_scoresFile_data(check);
+    }
+    else if ((player_1.score<player_2.score)&&(computer_check==false)){
+        printf("       *****Player2 Wins!*****\n");
+        Beep(2469,2*266.6);     //si
+        Beep(2616,2*266.6);      //do
+        SetColor(14);
+        printf(">Player2, Enter Your Name Please: ");
+        scanf(" %[^\n]s",&player_2.name);
+        check=check_name_usage(2);
+        updating_scoresFile_data(check);
+    }
+    else{
+        printf("       *****Draw!*****\n");
+        Beep(2469,2*266.6);     //si
+        Beep(1960,2*266.6);     //sol
+        SetColor(4);
+        printf(">Player1, Enter Your Name Please: ");
+        scanf(" %[^\n]s",&player_1.name);
+        check=check_name_usage(1);
+        updating_scoresFile_data(check);
+        if (computer_check==false){
+            SetColor(14);
+            printf(">Player2, Enter Your Name Please: ");
+            scanf(" %[^\n]s",&player_2.name);
+            check=check_name_usage(2);
+            updating_scoresFile_data(check);
+        }
+    }
+    SetColor(7);
+}
+//*******************************************************************//
+//******************************************************Game Intro ::
+void game_intro(){
+    static int x=0;
+    SetColor(9);
+    printf(" Welcome To I&M Connect 4 Game\n\t");
+    SetColor(7);
+    for (int j=0; j<2; j++)printf("%c%c%c%c", 206,205,205,205);
+    printf("%c", 206);
+    printf("\n\t");
+    for (int i=0; i<2; i++){
+        printf("%c ",186);
+        for (int j=0; j<2; j++){
+            if (x==0){
+                SetColor(4);
+                printf("%c", 178);
+                SetColor(7);
+                x=1;
+            }
+            else if (x==1){
+                SetColor(14);
+                printf("%c", 219);
+                SetColor(7);
+                x=0;
+            }
+            printf(" %c ", 186);
+        }
+        printf ("\n\t");
+        for (int j=0; j<2; j++)printf("%c%c%c%c", 206,205,205,205);
+        printf("%c", 206);
+        printf("\n\t");
+    }
+
+        Beep(1960,200);     //sol
+        Beep(2469,200);     //si
+        Beep(2616,2*266.6);      //do
+        sleep(1);
+
+}
+//**********************************************************************//
+//********************************************Main Menu ::
+void mainMenu(){
+    Beep(750,250);
+    system ("cls");
+    int choice;
+    char skip_ch;
+    SetColor(12);
+    printf("-----Main Menu-----\n");
+    SetColor(7);
+    printf(" |_ 1. Start a new game. [click 1] \n |_ 2. Load a game. [click 2] \n |_ 3. Top players [click 3]\n |_ 4. Quit [click 4]\n");
+    scanf("%d", &choice);
+    switch(choice){
+        case 1 : gameMode(); break;
+        case 2 : loadGame();break;
+        case 3 : topPlayersDisplay(-1); break;
+        case 4 : quit(); break;
+        default :
+            printf ("Invalid input please choose one of the valid inputs!\n");
+            Beep(1000, 300);Beep(1000, 300);Beep(1000, 300);
+            do
+            {
+                scanf("%c",&skip_ch);
+            }while(skip_ch != '\n');
+            mainMenu();
+            break;
+    }
+}
+//********************************************************//
+//***************************************Game Mode ::
+void gameMode(){
+    computer_check = false;
+    char skip_ch;
+    system ("cls");
+    Beep(750,250);
+    gameConfig.start_date_time=time(NULL);
+    int choice;
+    SetColor(12);
+    printf("choose a game mode: \n");
+    SetColor(7);
+    printf(" |_ 1. Vs. human. [click 1]\n |_ 2. Vs. computer. [click 2]\n |_ 3. Go back [click 3]\n");
+    scanf("%d", &choice);
+    switch(choice){
+        case 1 : human();break;
+        case 2 : computer();break;
+        case 3 : mainMenu(); break;
+        default :
+            printf("Invalid input please choose one of the valid inputs!\n");
+            Beep(1000, 300);Beep(1000, 300);Beep(1000, 300);
+            do
+            {
+                scanf("%c",&skip_ch);
+            }while(skip_ch != '\n');
+            gameMode();
+            break;
+    }
+
+}
+//*************************************************//
+//*************************************Initializing Human Vs Human Game ::
+void human(){
+    system ("cls");
+    Beep(750,250);
+
+    checkConfig();
+    //scan_gameConfig();
+
+    char a[gameConfig.height][gameConfig.width];
+    memset(a, ' ', sizeof a);
+    memset(player_1.locations, NULL, sizeof(player_1.locations));
+    memset(player_2.locations, NULL, sizeof(player_2.locations));
+    player_1.L=0;
+    player_2.L=0;
+    int turns = gameConfig.height*gameConfig.width;
+    strcpy(player_1.color, "red");
+    strcpy(player_2.color, "yellow");
+    player_1.numOfTurns=gameConfig.height*gameConfig.width/2;
+    player_2.numOfTurns=gameConfig.height*gameConfig.width/2;
+    char column_index[gameConfig.width][3];
+    int index=0;
+    column_index_init(column_index, index);
+
+    system("cls");
+
+    vsHuman_game(a,turns,column_index);
+
+    game_end(a,column_index);
+
+
+}
+//*********************************************************//
+
+//**************************************Human Vs. Human Game :;
+void vsHuman_game(char a[gameConfig.height][gameConfig.width], int turns, char column_index[gameConfig.width][3]){
+    update(a,column_index);
+    Swipping_Turns_vs_human(a,turns,column_index);
+}
+//**************************************//
+//**************************************GAmE Config ::
+void checkConfig()
+{
+	FILE* config;
+	int errorFlag = 0, occurrenceFlag, occurrenceCounter = 0, lengthXML, currentStringLength;
+	char stringXML[2048];
+	char testString1[] = "<\?xml version=\"1.0\"\?>";
+	char testString2[] = "<Configurations>";
+	char testString3[] = "</Configurations>";
+
+	char testString4[] = "<Height>";
+	char testString5[] = "</Height>";
+	char testString6[] = "<Width>";
+	char testString7[] = "</Width>";
+	char testString8[] = "<Highscores>";
+	char testString9[] = "</Highscores>";
+	char currentString[25];
+	char *startTag, *closeTag;
+	char *height = NULL;
+	char *width = NULL;
+	char *highscores = NULL;
+    char config_file_path[1024];
+	// Open XML file to read
+	config = fopen("configurations.xml", "r");
+    for(int i=0; (config==NULL)&&(i<3);i++){
+            printf("! Error reaching file ..................\nPlease Enter Scores File Path: ");
+            gets(config_file_path);
+            config=fopen(config_file_path, "r");
+    }
+
+
+	if ( config == NULL )
+	{
+		printf("File error, can't read!\n");
+	}
+	else
+	{
+        fread(stringXML, sizeof(char), 2047, config);       //Reading XML file
+        lengthXML = (int)strlen(stringXML) - 1;
+        for (int x = 0; x < 9; x++)
+        {
+            switch (x)
+            {
+            case 0:
+                strcpy(currentString, testString1);
+                currentStringLength = (int)strlen(testString1);
+                break;
+            case 1:
+                strcpy(currentString, testString2);
+                currentStringLength = (int)strlen(testString2);
+                break;
+            case 2:
+                strcpy(currentString, testString3);
+                currentStringLength = (int)strlen(testString3);
+                break;
+            case 3:
+                strcpy(currentString, testString4);
+                currentStringLength = (int)strlen(testString4);
+                break;
+            case 4:
+                strcpy(currentString, testString5);
+                currentStringLength = (int)strlen(testString5);
+                break;
+            case 5:
+                strcpy(currentString, testString6);
+                currentStringLength = (int)strlen(testString6);
+                break;
+            case 6:
+                strcpy(currentString, testString7);
+                currentStringLength = (int)strlen(testString7);
+                break;
+            case 7:
+                strcpy(currentString, testString8);
+                currentStringLength = (int)strlen(testString8);
+                break;
+            case 8:
+                strcpy(currentString, testString9);
+                currentStringLength = (int)strlen(testString9);
+                break;
+            }
+
+            occurrenceCounter = StringOccurrences(stringXML, lengthXML, currentString, currentStringLength);
+            if (occurrenceCounter != 1)
+            {
+                printf("Error occurred while reading XML file - incorrect format");
+                errorFlag = 1;
+                break;
+            }
+        }
+
+        if (errorFlag == 0)
+        {
+            if (startTag = strstr(stringXML, testString4))
+            {
+                startTag += strlen(testString4);
+                if (closeTag = strstr(startTag, testString5))
+                {
+                    height = (char*)malloc(closeTag - startTag + 1);
+                    memcpy(height, startTag, closeTag - startTag);
+                    height[closeTag - startTag] = '\0';
+                }
+            }
+            if (height)
+            {
+	    	int test_height = atoi(height);
+                if (test_height >= 4)
+		{
+			gameConfig.height = test_height;
+		}
+                //gameConfig.height = (int)height;
+            }
+            if (startTag = strstr(stringXML, testString6))
+            {
+                startTag += strlen(testString6);
+                if (closeTag = strstr(startTag, testString7))
+                {
+                    width = (char*)malloc(closeTag - startTag + 1);
+                    memcpy(width, startTag, closeTag - startTag);
+                    width[closeTag - startTag] = '\0';
+                }
+            }
+            if (width)
+            {
+	    	int test_width =atoi(width);
+		if (test_width >= 4)
+		{
+                	gameConfig.width = test_width;
+		}
+                //gameConfig.width = (int)width;
+            }
+            if (startTag = strstr(stringXML, testString8))
+            {
+                startTag += strlen(testString8);
+                if (closeTag = strstr(startTag, testString9))
+                {
+                    highscores = (char*)malloc(closeTag - startTag + 1);
+                    memcpy(highscores, startTag, closeTag - startTag);
+                    highscores[closeTag - startTag] = '\0';
+                }
+            }
+            if (highscores)
+            {
+	    	int test_highscore = atoi(highscores);
+		if (test_highscore >= 0)
+		{
+                	gameConfig.heighScores = test_highscore;
+		}
+                //gameConfig.heighScores = (int)highscores;
+            }
+        }
+	}
+    fclose(config);
+}
+//************************************[Occurrence Function]************************************
+int StringOccurrences(char stringXML[], int lengthXML, char testString[], int testStringLength)
+{
+    int flag, occurrenceCounter = 0;
+    for (int i = 0; i < lengthXML; i++)
+    {
+        flag = 0;
+        for (int j = 0; j < testStringLength; j++)
+        {
+            if (stringXML[i + j] != testString[j])
+            {
+                flag = 1;
+            }
+        }
+        if (flag == 0)
+        {
+            occurrenceCounter++;
+            //printf("Occurrence at index %i\n", i);
+        }
+    }
+    //printf("Total number of occurrences = %i", occurrenceCounter);
+    return occurrenceCounter;
+}
+
+
+//**********************************************//
+
+//*************************************Scanning Game Configurations ::
+void scan_gameConfig(){
+    int  height,width, heighScores;
+    char skip_ch;
+    printf("Enter game Configurations please: \n");
+
+    for (int i=0; i<3; i++){
+        printf("Grid Height= ");
+        if(scanf("%d", &height)&&(height>=4)){
+            gameConfig.height=height;
+            break;
+
+        }else{
+            printf("!Invalid Height, Please Enter an integer more than or equal 4......\n");
+            Beep(750,800);
+        }
+        do
+        {
+            scanf("%c",&skip_ch);
+        }while(skip_ch != '\n');
+    }
+    for(int i=0; i<3; i++){
+        printf("Grid Width= ");
+        if(scanf("%d", &width)&&(width>=4)){
+
+            gameConfig.width=width;
+            break;
+
+        }else{
+            printf("!Invalid Width, Please Enter an integer more than or equal 4.......\n");
+            Beep(750,800);
+        }
+        do
+        {
+            scanf("%c",&skip_ch);
+        }while(skip_ch != '\n');
+    }
+    for (int i=0; i<3; i++){
+        printf("Number of highest scores (printed at the end of the game) = ");
+        if(scanf("%d", &heighScores)&&(heighScores>=0)){
+            gameConfig.heighScores=heighScores;
+            break;
+
+        }else{
+            printf("!Invalid High Scores , Please Enter an integer.......\n");
+            Beep(750,800);
+        }
+        do
+        {
+            scanf("%c",&skip_ch);
+        }while(skip_ch != '\n');
+    }
+
+}
+//***************************************************************************//
+
+
+
+//************************Redo ::
+void redo(char a[gameConfig.height][gameConfig.width],int player_num, int *check){
+    if (num_of_undoes>0){
+        if (player_num==1){
+            a [player_1.locations[player_1.L].r][player_1.locations[player_1.L].c]=178 ;
+           *check =2;
+           player_1.L ++;
+        }
+        else if (player_num==2){
+            a [player_2.locations[player_2.L].r][player_2.locations[player_2.L].c]=219;
+            *check=2;
+            player_2.L ++;
+       }
+        num_of_undoes--;
+    }else{
+        printf("! No plays to redo...................\n");
+    }
+}
+//******************************//
+
+//************************Undo::
+void undo(char a[gameConfig.height][gameConfig.width],int player_num, int *check){
+    num_of_undoes++;       //calculating number of undoes for the redoes
+    if (player_num==1){
+        if (player_2.numOfTurns==gameConfig.height*gameConfig.width/2){
+            printf("! No plays to undo......\n");
+            Beep(750,800);
+        }else{
+            player_2.L --;
+            player_1.numOfTurns++;
+            player_2.numOfTurns++;
+            a [player_2.locations[player_2.L].r][player_2.locations[player_2.L].c]=' ';
+           *check =-1;
+        }
+    }
+    else if (player_num==2){
+        if (player_1.numOfTurns==gameConfig.height*gameConfig.width/2){
+            printf("! No playes to undo......\n");
+            Beep(750,800);
+       }else{
+            player_1.L--;
+            player_1.numOfTurns++;
+            player_2.numOfTurns++;
+            a [player_1.locations[player_1.L].r][player_1.locations[player_1.L].c]=' ';
+            *check=-1;
+       }
+    }
+}
+//********************************//
+
+//*****************************Computer Vs Human Game ::
+void computer(){
+     computer_check =true;
+     system ("cls");
+     system ("cls");
+    Beep(750,250);
+
+    checkConfig();
+    //scan_gameConfig();
+
+    char a[gameConfig.height][gameConfig.width];
+    memset(a, ' ', sizeof a);
+    memset(player_1.locations, NULL, sizeof(player_1.locations));
+    memset(player_2.locations, NULL, sizeof(player_2.locations));
+    player_1.L=0;
+    player_2.L=0;
+    int turns = gameConfig.height*gameConfig.width;
+    strcpy(player_1.color, "red");
+    strcpy(player_2.color, "yellow");
+    player_1.numOfTurns=gameConfig.height*gameConfig.width/2;
+    player_2.numOfTurns=gameConfig.height*gameConfig.width/2;
+    char column_index[gameConfig.width][3];
+    int index=0;
+    column_index_init(column_index, index);
+
+    system("cls");
+
+    vsComputer_game(a,turns,column_index);
+
+    game_end(a,column_index);
+
+}
+//***********************************//
+//***********************************Vs. Computer Game ::
+void vsComputer_game(char a[gameConfig.height][gameConfig.width], int turns, char column_index[gameConfig.width][3]){
+
+    strcpy(player_2.name, "computer");
+    update(a,column_index);
+    Swipping_Turns_vs_Computer(a,turns,column_index);
+}
+//***************************************//
+
+
+//******************************************Writing in scores file ::
+void write_in_file (int n, player players[]){
+    char scores_file_pass[1024];
+    players_scores=fopen("scores.bin", "wb");
+    for(int i=0; (players_scores==NULL)&&(i<3);i++){
+        printf("! Error reaching file ..................\nPlease Enter Scores File Pass: ");
+        gets(scores_file_pass);
+        players_scores=fopen(scores_file_pass, "wb");
+    }
+    if (players_scores==NULL){
+        printf("Sorry can not reach file\n");
+        back_to_main_menu();
+        return;
+    }
+    if(fwrite(&n, sizeof(int), 1, players_scores)!=1){
+        back_to_main_menu();
+        return;
+    }
+    if(fwrite(players, sizeof(player), n, players_scores)!=n){
+        back_to_main_menu();
+        return;
+    }
+    if (fclose(players_scores)==EOF) {
+        back_to_main_menu();
+        return;
+    }
+}
+//********************************************//
+//**************************************Bubble Sorting ::
+void bubble_sort(int n, player winner[]){
+    for (int j=0; j<n; j++){
+        for (int i=n-1; i>j; i--){
+            if (winner[i].score > winner[i-1].score){
+                player temp;
+                temp = winner[i];
+                winner[i] = winner[i-1];
+                winner[i-1] = temp;
+            }
+        }
+    }
+}
+//*******************************************//
+
+//*************************************** updating_scoresFile_data ::
+void updating_scoresFile_data(int check){
+    int n;
+    char scores_file_pass[1024];
+    players_scores=fopen("scores.bin","rb");
+    for(int i=0; (players_scores==NULL)&&(i<3);i++){
+        printf("! Error reaching file ..................\nPlease Enter Scores File Pass: ");
+        gets(scores_file_pass);
+        players_scores=fopen(scores_file_pass, "rb");
+    }
+    if (players_scores==NULL){
+        printf("Sorry can not reach file\n");
+        back_to_main_menu();return;
+    }
+    if (fread(&n , sizeof(int), 1, players_scores)!=1)
+    {
+        n=0;
+    }
+    if (check==0) n++;
+    player winner[n];
+    if(fread(&winner, sizeof (player), n, players_scores)!=n){
+        printf("No Names Recorded\n");
+        back_to_main_menu();return;
+    }
+
+    if (fclose(players_scores)==EOF)
+    {
+        printf("!Error closing file .................\n");
+        back_to_main_menu();return;
+    }
+    bubble_sort(n ,winner);
+    write_in_file(n, winner);
+
+}
+//*******************************************//
+
+
+//*******************************Top Players Display  At Beginnig::
+void topPlayersDisplay(int m){
+    system ("cls");
+    int n;
+    char scores_file_pass[1024];
+    players_scores=fopen("scores.bin","rb");
+    for(int i=0; (players_scores==NULL)&&(i<3);i++){
+        printf("! Error reaching file ..................\nPlease Enter Scores File Pass: ");
+        gets(scores_file_pass);
+        players_scores=fopen(scores_file_pass, "rb");
+    }
+    if (players_scores==NULL){
+        printf("Sorry can not reach file\n");
+        back_to_main_menu();return;
+    }
+    if (fread(&n , sizeof(int), 1, players_scores)!=1)
+    {
+        n=1;
+    }
+    player winner[n];
+    if (fread(&winner, sizeof (player), n, players_scores)!=n)
+    {
+        printf("! NO NAMES Recorded...........\n");
+        back_to_main_menu();return;
+    }
+    if (fclose(players_scores)==EOF)
+    {
+        printf("!Error closing file .................\n");
+        back_to_main_menu();
+        return;
+    }
+    bubble_sort(n, winner);
+    if ((m==-1)||(m>n)) {
+        for (int i=0; i<n; i++){
+            if(i==0) SetColor(10);
+            else if (i==1) SetColor(14);
+            else if(i==2) SetColor(11);
+            else SetColor(9);
+            printf("%d] %s",i+1, winner[i].name);
+            printf(" --> %d\n", winner[i].score);
+            printf("-----------------------------\n");
+        }
+    }
+    else {
+        for (int i=0; i<m; i++){
+            if(i==0) SetColor(10);
+            else if (i==1) SetColor(14);
+            else if(i==2) SetColor(11);
+            else SetColor(9);
+            printf("%d] %s",i+1, winner[i].name);
+            printf(" --> %d\n", winner[i].score);
+            printf("-----------------------------\n");
+        }
+    }
+    SetColor(7);
+    back_to_main_menu();
+    return;
+}
+//************************************//
+
+//******************************Changing names in lower characters
+void lower_char(char player_name[1082]){
+    bool check=true;
+    for (int i=0; check; i++){
+        if(player_name[i]!='\0'){
+            player_name[i]=tolower(player_name[i]);
+        }else{
+            check=false;
+        }
+    }
+}
+//***********************************//
+//******************************Appending New Score in Scores Binary File ::
+void append_name_score_in_file(int p){
+    char scores_file_pass[1024];
+    players_scores=fopen("scores.bin", "ab");
+    for (int i =0; (players_scores==NULL)&&i<3; i++){
+        printf("! Error can not reach file ........\nPlease Enter Scores File Pass:  ");
+        gets(scores_file_pass);
+        players_scores=fopen(scores_file_pass, "ab");
+    }
+    if (players_scores==NULL){
+        printf("! SORRY can not reach file ................\n");
+        back_to_main_menu();return;
+    }
+    if (p==1){
+        lower_char(player_1.name);
+        if (fwrite(&player_1, sizeof(player), 1,players_scores)!=1){
+            printf("Somethig went wrong in saving the name of winner........\n");
+            back_to_main_menu();return;
+        }
+    }
+    if (p==2){
+        lower_char(player_2.name);
+        if (fwrite(&player_2, sizeof(player), 1,players_scores)!=1){
+            printf("Somethig went wrong in saving the name of winner........\n");
+            back_to_main_menu();return;
+        }
+    }
+   if (fclose(players_scores)==EOF) back_to_main_menu();
+}
+//***************************************//
+//********************************************Reading File ::
+player* read_array(int* n){
+    int empty_check=0;
+    char scores_file_pass[1024];
+    players_scores=fopen("scores.bin","rb");
+    for(int i=0; (players_scores==NULL)&&(i<3);i++){
+        printf("! Error reaching file ..................\nPlease Enter Scores File Pass: ");
+        gets(scores_file_pass);
+        players_scores=fopen(scores_file_pass, "rb");
+    }
+    if (players_scores==NULL){
+        printf("Sorry can not reach file\n");
+        back_to_main_menu();
+        return 0;
+    }
+    if (fread(n , sizeof(int), 1, players_scores)!=1)              //reading number of players in the file
+    {
+        *n=1;
+    }
+    player *winner=malloc(sizeof(player)* *n);
+    if (fread(winner, sizeof (player), *n, players_scores)!=*n)               //reading players in the file
+    {
+        empty_check=1;
+        *n=0;
+    }
+    if (fclose(players_scores)==EOF)
+    {
+        printf("!Error closing file .................\n");
+        back_to_main_menu();
+        return 0;
+    }
+    if (empty_check==1){
+        return NULL;
+    }
+    else{
+        return winner;
+    }
+}
+//*************************************************//
+//***********************************Check Name Usage before appending ::
+int check_name_usage (int p){
+    int n;
+    player* scores =read_array(&n);
+    int check=0;
+    if (p==1){
+        lower_char(player_1.name);
+        for (int i=0; i<n; i++){
+            if(strcmp(scores[i].name, player_1.name)==0){
+                check=1;
+                if(player_1.score > scores[i].score){
+                    scores[i].score = player_1.score;
+                    write_in_file(n,scores);
+                    break;
+                }
+                else break;
+            }
+        }
+        if(check==0)
+            append_name_score_in_file(1);
+    }
+    if(p==2){
+        lower_char(player_2.name);
+        for (int i=0; i<n; i++){
+            if(strcmp(scores[i].name, player_2.name)==0){
+                check=1;
+                if(player_2. score > scores[i].score){
+                    scores[i].score = player_2.score;
+                    write_in_file(n,scores);
+                    break;
+                }
+                else break;
+            }
+        }
+        if(check==0)
+            append_name_score_in_file(2);
+    }
+    free(scores);
+    return check;
+}
+//******************************************************************//
+//**************************************************************************************************************Game End::
+void game_end(char a[gameConfig.height][gameConfig.width],char column_index[gameConfig.width][3]){
+    showing_final_score(a,column_index);
+    print_scan_name_of_winner();
+    topPlayersDisplay(gameConfig.heighScores);
+}
+//*********************************************************************//
+//***************************************Asking for reruning to the main menu at the end ::
+void back_to_main_menu(){
+    int choice;
+    char skip_ch;
+    Beep(750,250);
+    printf("|_Return to the main menu [click 1]\n|_Quit Game [click 2]\n");
+    scanf("%d", &choice);
+    switch(choice){
+        case 1 : mainMenu(); break;
+        case 2 : quit(); break;
+        default :
+            printf("Invalid input please choose one of the valid inputs!\n");
+            Beep(1000, 300);Beep(1000, 300);Beep(1000, 300);
+            do
+            {
+                scanf("%c",&skip_ch);
+            }while(skip_ch != '\n');
+            back_to_main_menu();
+           return;
+
+    }
+
+}
+
+//********************************************************************//
+//*************************Saving Game ::
+void save_quit(char a[gameConfig.height][gameConfig.width],char column_index[gameConfig.width][3]){
+        save_game(a,column_index);
+        quit();
+}
+//******************************//
+
+//*****************************************Save Game Options  ::
+void save_game(char a[gameConfig.height][gameConfig.width], char column_index[gameConfig.width][3]){
+    int choice;
+    char skip_ch;
+    printf("Choose game memory: \n");
+    printf(" |_Game Memory 1 [click 1]\n |_Game Memory 2 [click 2]\n |_Game Memory 3 [click 3]\n");
+    scanf("%d", &choice);
+    switch(choice){
+        case 1: save_game_in_file1(a,column_index); break;
+        case 2 : save_game_in_file2(a, column_index); break;
+        case 3 : save_game_in_file3 (a, column_index); break;
+        default :
+            printf("Invalid input please choose one of the valid inputs!\n");
+            Beep(1000, 300);Beep(1000, 300);Beep(1000, 300);
+            do
+            {
+                scanf("%c",&skip_ch);
+            }while(skip_ch != '\n');
+            save_game(a, column_index);
+            break;
+
+    }
+}
+//*************************************************************//
+//*****************************Saving Game in file 1 ::
+void save_game_in_file1(char a[gameConfig.height][gameConfig.width], char column_index[gameConfig.width][3]){
+    player players [2]={player_1, player_2};
+    char scores_file_pass[1024];
+    game_saved1=fopen("saved game1.bin", "wb");
+    for (int i =0; (game_saved1==NULL)&&i<3; i++){
+        printf("! Error can not reach file ........\nPlease Enter Scores File Pass:  ");
+        gets(scores_file_pass);
+        game_saved1=fopen(scores_file_pass, "wb");
+    }
+    if (game_saved1==NULL){
+        printf("! SORRY can not reach file ................\n");
+        back_to_main_menu();return;
+
+    }
+
+    if (fwrite(&gameConfig, sizeof (config), 1, game_saved1)!=1)   //saving game configurations
+    {
+        printf("!Error Saving Game Configurations.....................\n");
+        back_to_main_menu();return;
+    }
+    if(fwrite(&players, sizeof(player), 2, game_saved1)!=2)    // saving players information
+    {
+        printf("!Error Saving Game Player 1 Data.............................\n");
+        back_to_main_menu();return;
+    }
+    if(fwrite(column_index, sizeof (char),gameConfig.width*3,  game_saved1)!=gameConfig.width*3)  //saving column indices array
+    {
+        printf("!Error Saving Game Column Indexes..................\n");
+        back_to_main_menu();return;
+    }
+    if(fwrite(a, sizeof (char), gameConfig.height*gameConfig.width, game_saved1)!=gameConfig.height*gameConfig.width)    //saving grid array
+    {
+        printf("!Error Saving Game Grid..................\n");
+        back_to_main_menu();return;
+    }
+
+    if (fclose(game_saved1) == EOF)
+    {
+        printf("!Error Closing saved games file ....................\n");
+        back_to_main_menu();return;
+    }
+}
+//********************************//
+//*****************************Saving Game in file 2 ::
+void save_game_in_file2(char a[gameConfig.height][gameConfig.width], char column_index[gameConfig.width][3]){
+    player players [2]={player_1, player_2};
+    char scores_file_pass[1024];
+    game_saved2=fopen("saved game2.bin", "wb");
+    for (int i =0; (game_saved2==NULL)&&i<3; i++){
+        printf("! Error can not reach file ........\nPlease Enter Scores File Pass:  ");
+        gets(scores_file_pass);
+        game_saved2=fopen(scores_file_pass, "wb");
+    }
+    if (game_saved2==NULL){
+        printf("! SORRY can not reach file ................\n");
+        back_to_main_menu();return;
+    }
+    if (fwrite(&gameConfig, sizeof (config), 1, game_saved2)!=1)   //saving game configurations
+    {
+        printf("!Error Saving Game Configurations.....................\n");
+        back_to_main_menu();return;
+    }
+    if(fwrite(&players, sizeof(player), 2, game_saved2)!=2)    // saving players information
+    {
+        printf("!Error Saving Game Player 1 Data.............................\n");
+        back_to_main_menu();return;
+    }
+
+    if(fwrite(column_index, sizeof (char),gameConfig.width*3,  game_saved2)!=gameConfig.width*3)  //saving column indices array
+    {
+        printf("!Error Saving Game Column Indexes..................\n");
+        back_to_main_menu();return;
+    }
+    if(fwrite(a, sizeof (char), gameConfig.height*gameConfig.width, game_saved2)!=gameConfig.height*gameConfig.width)    //saving grid array
+    {
+        printf("!Error Saving Game Grid..................\n");
+        back_to_main_menu();return;
+    }
+    if (fclose(game_saved2) == EOF)
+    {
+        printf("!Error Closing saved games file ....................\n");
+        back_to_main_menu();return;
+    }
+}
+//********************************//
+//*****************************Saving Game in file 3 ::
+void save_game_in_file3(char a[gameConfig.height][gameConfig.width], char column_index[gameConfig.width][3]){
+    player players [2]={player_1, player_2};
+    char scores_file_pass[1024];
+    game_saved3=fopen("saved game3.bin", "wb");
+    for (int i =0; (game_saved3==NULL)&&i<3; i++){
+        printf("! Error can not reach file ........\nPlease Enter Scores File Pass:  ");
+        gets(scores_file_pass);
+        game_saved3=fopen(scores_file_pass, "wb");
+    }
+    if (game_saved3==NULL){
+        printf("! SORRY can not reach file ................\n");
+        back_to_main_menu();return;
+    }
+    if (fwrite(&gameConfig, sizeof (config), 1, game_saved3)!=1)   //saving game configurations
+    {
+        printf("!Error Saving Game Configurations.....................\n");
+        back_to_main_menu();return;
+    }
+    if(fwrite(&players, sizeof(player), 2, game_saved3)!=2)    // saving players information
+    {
+        printf("!Error Saving Game Player 1 Data.............................\n");
+        back_to_main_menu();return;
+    }
+
+    if(fwrite(column_index, sizeof (char),gameConfig.width*3,  game_saved3)!=gameConfig.width*3)  //saving column indices array
+    {
+        printf("!Error Saving Game Column Indexes..................\n");
+        back_to_main_menu();return;
+    }
+
+    if(fwrite(a, sizeof (char), gameConfig.height*gameConfig.width, game_saved3)!=gameConfig.height*gameConfig.width)    //saving grid array
+    {
+        printf("!Error Saving Game Grid..................\n");
+        back_to_main_menu();return;
+    }
+
+    if (fclose(game_saved3) == EOF)
+    {
+        printf("!Error Closing saved games file ....................\n");
+        back_to_main_menu();return;
+    }
+}
+//********************************//
+//****************************Loading Game ::
+void loadGame(){
+    system ("cls");
+    char skip_ch;
+    char scores_file_pass[1024];
+    int choice;
+    printf("Choose Game Memory Number to Load Please: \n");
+    printf(" |_Game Memory 1 [click 1]\n |_Game Memory 2 [click 2]\n |_Game Memory 3 [click 3]\n");
+    scanf("%d", &choice);
+    if (choice==1){
+        game_saved1=fopen("saved game1.bin", "rb");
+        for (int i =0; (game_saved1==NULL)&&i<3; i++){
+            printf("! Error can not reach file ........\nPlease Enter Scores File Pass:  ");
+            gets(scores_file_pass);
+            game_saved1=fopen(scores_file_pass, "rb");
+        }
+        if (game_saved1==NULL){
+            printf("! SORRY can not reach file ................\n");
+            back_to_main_menu();return;
+        }
+
+        if(fread(&gameConfig, sizeof(config), 1,game_saved1)!=1){   //loading game configurations
+            printf("!Error Loading Game Configurations..................\n");
+            back_to_main_menu();return;
+        }
+
+        player players [2];
+        if(fread(&players, sizeof(player), 2,game_saved1)!=2){     //loading players' information
+            printf("!Error Loading Players Information..................\n");
+            back_to_main_menu();return;
+        }
+        player_1=players[0];
+        player_2=players[1];
+    }
+    else if(choice==2){
+        game_saved2=fopen("saved game2.bin", "rb");
+        for (int i =0; (game_saved2==NULL)&&i<3; i++){
+            printf("! Error can not reach file ........\nPlease Enter Scores File Pass:  ");
+            gets(scores_file_pass);
+            game_saved2=fopen(scores_file_pass, "rb");
+        }
+        if (game_saved2==NULL){
+            printf("! SORRY can not reach file ................\n");
+            back_to_main_menu();return;
+        }
+
+        if(fread(&gameConfig, sizeof(config), 1,game_saved2)!=1){   //loading game configurations
+            printf("!Error Loading Game Configurations..................\n");
+            back_to_main_menu();return;
+        }
+
+        player players [2];
+        if(fread(&players, sizeof(player), 2,game_saved2)!=2){     //loading players' information
+            printf("!Error Loading Players Information..................\n");
+            back_to_main_menu();return;
+        }
+        player_1=players[0];
+        player_2 = players[1];
+    }
+    else if (choice==3){
+        game_saved3=fopen("saved game3.bin", "rb");
+        for (int i =0; (game_saved3==NULL)&&i<3; i++){
+            printf("! Error can not reach file ........\nPlease Enter Scores File Pass:  ");
+            gets(scores_file_pass);
+            game_saved3=fopen(scores_file_pass, "rb");
+        }
+        if (game_saved3==NULL){
+            printf("! SORRY can not reach file ................\n");
+            back_to_main_menu();return;
+        }
+
+        if(fread(&gameConfig, sizeof(config), 1,game_saved3)!=1){   //loading game configurations
+            printf("!Error Loading Game Configurations..................\n");
+            back_to_main_menu();return;
+        }
+
+        player players [2];
+        if(fread(&players, sizeof(player), 2,game_saved3)!=2){     //loading players' information
+            printf("!Error Loading Players Information..................\n");
+            back_to_main_menu();return;
+        }
+        player_1=players[0];
+        player_2=players[1];
+    }
+    else{
+        printf("Invalid input please choose one of the valid inputs!\n");
+        Beep(1000, 300);Beep(1000, 300);Beep(1000, 300);
+        do
+        {
+            scanf("%c",&skip_ch);
+        }while(skip_ch != '\n');
+        loadGame();
+        return;
+    }
+    char column_index[gameConfig.width][3];
+    if(choice==1){
+        if(fread(&column_index, sizeof(char), gameConfig.width*3,game_saved1)!=gameConfig.width*3){     //loading column indices
+            printf("!Error Loading column indices..................\n");
+            back_to_main_menu();return;
+        }
+    }
+    else if (choice==2){
+        if(fread(&column_index, sizeof(char), gameConfig.width*3,game_saved2)!=gameConfig.width*3){     //loading column indices
+            printf("!Error Loading column indices..................\n");
+            back_to_main_menu();return;
+        }
+    }
+    else if (choice==3){
+        if(fread(&column_index, sizeof(char), gameConfig.width*3,game_saved3)!=gameConfig.width*3){     //loading column indices
+            printf("!Error Loading column indices..................\n");
+            back_to_main_menu();return;
+        }
+    }
+    char a[gameConfig.height][gameConfig.width];
+    if(choice==1){
+        if(fread(&a, sizeof(char), gameConfig.height*gameConfig.width,game_saved1)!=gameConfig.height*gameConfig.width){     //loading grid
+            printf("!Error Loading Grid..................\n");
+            back_to_main_menu();return;
+        }
+        if (fclose(game_saved1) == EOF)
+            {
+                printf("!Error Closing saved games file ....................\n");
+                back_to_main_menu();return;
+            }
+    }
+    else if(choice==2){
+        if(fread(&a, sizeof(char), gameConfig.height*gameConfig.width,game_saved2)!=gameConfig.height*gameConfig.width){     //loading grid
+            printf("!Error Loading Grid..................\n");
+            back_to_main_menu();return;
+        }
+        if (fclose(game_saved2) == EOF)
+            {
+                printf("!Error Closing saved games file ....................\n");
+                back_to_main_menu();return;
+            }
+    }
+    else if (choice==3){
+        if(fread(&a, sizeof(char), gameConfig.height*gameConfig.width,game_saved3)!=gameConfig.height*gameConfig.width){     //loading grid
+            printf("!Error Loading Grid..................\n");
+            back_to_main_menu();return;
+        }
+        if (fclose(game_saved3) == EOF)
+            {
+                printf("!Error Closing saved games file ....................\n");
+                back_to_main_menu();return;
+            }
+    }
+    Loaded_Game(a,column_index);
+}
+//***********************************//
+//*************************************Loaded Game ::
+void Loaded_Game (char a[gameConfig.height][gameConfig.width],char column_index[gameConfig.width][3]){
+    int turns = player_1.numOfTurns + player_2.numOfTurns;
+    if (strcmp(player_2.name, "computer")==0){
+        vsComputer_game(a,turns,column_index);
+    }
+    else {
+        vsHuman_game(a, turns, column_index);
+    }
+    game_end(a,column_index);
+}
+//*********************************************//human
+
+
+//*************************** Quiting Game ::
+void quit(){
+    SetColor(9);
+    printf("Good Bye!\n");
+    Beep(2616,200);      //do
+    Beep(2469,200);     //si
+    Beep(1960,200);     //sol
+    SetColor(7);
+    exit(0);
+}
+//***************************************// 
