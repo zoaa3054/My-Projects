@@ -116,6 +116,3 @@ void RREF (double **arr, int pivotR, int pivotC){
         }
     }
 }
-
-
-
