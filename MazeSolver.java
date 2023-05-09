@@ -265,29 +265,50 @@ public class MazeSolver {
         }
     }
 
-    boolean checkNode = false;
-    public Node searchForNode (Node newNode, Node search){
-        if (search == null) return search;
-        else if (search.coord == newNode.coord){
-            checkNode = true;
-            return search;
-        }else {
-            if (!checkNode) searchForNode(newNode, search.up); //searching up
-            if (!checkNode) searchForNode(newNode, search.lft); //searching left
-            if (!checkNode) searchForNode(newNode, search.dwn); //searching down
-            if (!checkNode) searchForNode(newNode, search.rit); // searching right
-            return search;
+    class LinkedList {
+        SingleLinkedListNode head = new SingleLinkedListNode();
+        SingleLinkedListNode tail = new SingleLinkedListNode();
+        int size = 0;
+        void add(Node newNode){
+            if (size == 0){
+                head.data = newNode;
+                tail = head;
+                size++;
+            }
+            else if (size == 1) {
+                SingleLinkedListNode temp = new SingleLinkedListNode();
+                temp.data = newNode;
+                head.next = temp;
+                tail = temp;
+                size++;
+            }else{
+                SingleLinkedListNode temp = new SingleLinkedListNode();
+                temp.data = newNode;
+                tail.next = temp;
+                tail = temp;
+                size++;
+            }
+        }
+
+        Node searchForNode(Node search){
+            SingleLinkedListNode temp = head;
+            for (int i=0; i<size; i++){
+                if (temp.data.coord.equals(search.coord)) return temp.data;
+                else temp = temp.next;
+            }
+            return null;
         }
     }
-    
+
+    LinkedList arrayOfNodes = new LinkedList();
     public MapStartAndGoal mapCreator(String [] maze, int r, int c, String move){
-        Node checkNodePres;
+        Node checkNodePres = new Node(null);
         if (r>=maze.length || c>=maze[0].length() || r<0 || c<0) return null;
         else {
             if (maze[r].charAt(c)!='#'){
                 newNode = new Node(new Point(r, c));
-                checkNodePres = searchForNode(newNode, temp);
-                if (checkNodePres != temp){ //there is node found with the same data as newNode
+                checkNodePres = arrayOfNodes.searchForNode(newNode);
+                if (checkNodePres != null){ //there is node found with the same data as newNode
                     if (move == "right" && checkNodePres.lft == null){
                         setNodePointers(move, checkNodePres); //setting directions in map
                     }
@@ -304,6 +325,7 @@ public class MazeSolver {
                 }else{ //if this data is a new data
                     setNodePointers(move, newNode); //setting directions in map
                     temp = newNode;
+                    arrayOfNodes.add(temp);
                 }
                 
                 if (maze[r].charAt(c)=='S'){ //check if it is the start node
@@ -325,6 +347,7 @@ public class MazeSolver {
             mapCreator(maze, r-1, c, "up");
             //searching left
             mapCreator(maze, r, c-1, "left");
+            System.out.println("skdjlf");
             //searching down
             mapCreator(maze, r+1, c, "down");
             //searching right
@@ -488,6 +511,7 @@ public class MazeSolver {
             if(c==mazeArray[0].length()-1){c=0; r++;}
             else c++;
         }
+        
         if (r==mazeArray.length){
             System.out.println("All the maze is walls:)");
             return;
