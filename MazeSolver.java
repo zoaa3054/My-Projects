@@ -17,6 +17,41 @@ class SingleLinkedListNode {
     SingleLinkedListNode next;
 }
 
+class LinkedList {
+    SingleLinkedListNode head = new SingleLinkedListNode();
+    SingleLinkedListNode tail = new SingleLinkedListNode();
+    int size = 0;
+    void add(Node newNode){
+        if (size == 0){
+            head.data = newNode;
+            tail = head;
+            size++;
+        }
+        else if (size == 1) {
+            SingleLinkedListNode temp = new SingleLinkedListNode();
+            temp.data = newNode;
+            head.next = temp;
+            tail = temp;
+            size++;
+        }else{
+            SingleLinkedListNode temp = new SingleLinkedListNode();
+            temp.data = newNode;
+            tail.next = temp;
+            tail = temp;
+            size++;
+        }
+    }
+
+    Node searchForNode(Node search){
+        SingleLinkedListNode temp = head;
+        for (int i=0; i<size; i++){
+            if (temp.data.coord.equals(search.coord)) return temp.data;
+            else temp = temp.next;
+        }
+        return null;
+    }
+}
+
 class Queue{
     private class SingleLinkedList{
         SingleLinkedListNode head;
@@ -61,7 +96,6 @@ class Queue{
             return size;
         } 
     }
-    int size;
     SingleLinkedList list = new SingleLinkedList();
     public void enque(Node item){
         list.addToRear(item);
@@ -222,6 +256,7 @@ public class MazeSolver {
         }
         return mapArray;
     }
+
     public void setNodePointers(String move, Node nNode){
         if(temp==null) return;
         else{
@@ -245,6 +280,7 @@ public class MazeSolver {
             }
         }
     }
+
     public void nodeGoBack (Node node, String move){
         if (node!=null){
 
@@ -265,41 +301,6 @@ public class MazeSolver {
         }
     }
 
-    class LinkedList {
-        SingleLinkedListNode head = new SingleLinkedListNode();
-        SingleLinkedListNode tail = new SingleLinkedListNode();
-        int size = 0;
-        void add(Node newNode){
-            if (size == 0){
-                head.data = newNode;
-                tail = head;
-                size++;
-            }
-            else if (size == 1) {
-                SingleLinkedListNode temp = new SingleLinkedListNode();
-                temp.data = newNode;
-                head.next = temp;
-                tail = temp;
-                size++;
-            }else{
-                SingleLinkedListNode temp = new SingleLinkedListNode();
-                temp.data = newNode;
-                tail.next = temp;
-                tail = temp;
-                size++;
-            }
-        }
-
-        Node searchForNode(Node search){
-            SingleLinkedListNode temp = head;
-            for (int i=0; i<size; i++){
-                if (temp.data.coord.equals(search.coord)) return temp.data;
-                else temp = temp.next;
-            }
-            return null;
-        }
-    }
-
     LinkedList arrayOfNodes = new LinkedList();
     public MapStartAndGoal mapCreator(String [] maze, int r, int c, String move){
         Node checkNodePres = new Node(null);
@@ -309,18 +310,19 @@ public class MazeSolver {
                 newNode = new Node(new Point(r, c));
                 checkNodePres = arrayOfNodes.searchForNode(newNode);
                 if (checkNodePres != null){ //there is node found with the same data as newNode
-                    if (move == "right" && checkNodePres.lft == null){
-                        setNodePointers(move, checkNodePres); //setting directions in map
-                    }
-                    else if (move == "up" && checkNodePres.dwn == null){
+                    if (move == "down" && checkNodePres.up == null){
                         setNodePointers(move, checkNodePres); //setting directions in map
                     }
                     else if (move == "left" && checkNodePres.rit == null){
                         setNodePointers(move, checkNodePres); //setting directions in map
                     }
-                    else if (move == "down" && checkNodePres.up == null){
+                    else if (move == "up" && checkNodePres.dwn == null){
                         setNodePointers(move, checkNodePres); //setting directions in map
                     }
+                    else if (move == "right" && checkNodePres.lft == null){
+                        setNodePointers(move, checkNodePres); //setting directions in map
+                    }
+
                     return null;
                 }else{ //if this data is a new data
                     setNodePointers(move, newNode); //setting directions in map
@@ -342,14 +344,12 @@ public class MazeSolver {
             else{
                 return null;
             }
-
-            //searching up
-            mapCreator(maze, r-1, c, "up");
-            //searching left
-            mapCreator(maze, r, c-1, "left");
-            System.out.println("skdjlf");
             //searching down
             mapCreator(maze, r+1, c, "down");
+            //searching left
+            mapCreator(maze, r, c-1, "left");
+            //searching up
+            mapCreator(maze, r-1, c, "up");            
             //searching right
             mapCreator(maze, r, c+1, "right");
             nodeGoBack(temp, move);
@@ -376,13 +376,8 @@ public class MazeSolver {
         // System.out.println("("+(int)stack.peek().coord.getX() + " , " + (int)stack.peek().coord.getY() + ")");
         while (!stack.isEmpty()){
             if(stack.peek() == goal) return traceDFSRoute(stack); //goal found
-            else if (stack.peek().rit != null && stack.peek().rit.visited == false){ //check if current node has unvisited right child
-                stack.push(stack.peek().rit);
-                stack.peek().visited = true; //mark node as visited
-
-            }
-            else if (stack.peek().up != null && stack.peek().up.visited == false){ //check if current node has unvisited up child
-                stack.push(stack.peek().up);
+            else if (stack.peek().dwn != null && stack.peek().dwn.visited == false){ //check if current node has unvisited down child
+                stack.push(stack.peek().dwn);
                 stack.peek().visited = true; //mark node as visited
 
             }
@@ -391,11 +386,17 @@ public class MazeSolver {
                 stack.peek().visited = true; //mark node as visited
 
             }
-            else if (stack.peek().dwn != null && stack.peek().dwn.visited == false){ //check if current node has unvisited down child
-                stack.push(stack.peek().dwn);
+            else if (stack.peek().up != null && stack.peek().up.visited == false){ //check if current node has unvisited up child
+                stack.push(stack.peek().up);
                 stack.peek().visited = true; //mark node as visited
 
             }
+            else if (stack.peek().rit != null && stack.peek().rit.visited == false){ //check if current node has unvisited right child
+                stack.push(stack.peek().rit);
+                stack.peek().visited = true; //mark node as visited
+
+            }
+            
             else stack.pop();
         }
         return null;
@@ -403,45 +404,40 @@ public class MazeSolver {
 
     public Queue reverseQ (Queue q){
         Node[] temp = new Node [q.size()];
-        for (int i=0; i<q.size(); i++){ //emptying q in an array
-            temp[i] = q.deque();
+        int l=0;
+        while (!q.isEmpty()){ //emptying q in an array
+            temp[l] = q.deque(); l++;
         }
-
-        // for (int i=0; i<temp.length; i++) System.out.println(temp[i].coord + " ");
-
+        
         for (int i=temp.length-1; i>=0; i--){ //refilling q with its elements inversly
             q.enque(temp[i]);
         }
         return q;
     }
-
-    // public static void function(){
-    //     Queue q = new Queue();
-    //     Node n = new Node(new Point(0, 1));
-    //     q.enque(n);
-    //     System.out.println(q.peek().coord.getY());
-    // }
     
     public Point[] traceBFSRoute(Queue routeQ){
+
         routeQ = reverseQ(routeQ); //reversing queue
         Node temp;
         boolean check = true;
-        for (int i=0; i<routeQ.size()-1; i++){
+        int routeQSize = routeQ.size();
+        for (int i=0; i<routeQSize-1; i++){
             check = true;
             temp = routeQ.deque();
             while(check){
-                if (temp == routeQ.peek().rit) { routeQ.enque(temp); i++; check = false;} //check if routeQ.peek() is parent for temp node
-                else if (temp == routeQ.peek().up) {routeQ.enque(temp); i++; check = false;}//..
-                else if (temp == routeQ.peek().lft) {routeQ.enque(temp); i++; check = false;}//..
-                else if (temp == routeQ.peek().dwn) {routeQ.enque(temp); i++; check = false;}//..
+                if (temp == routeQ.peek().rit) { routeQ.enque(temp); check = false;} //check if routeQ.peek() is parent for temp node
+                else if (temp == routeQ.peek().up) {routeQ.enque(temp); check = false;}//..
+                else if (temp == routeQ.peek().lft) {routeQ.enque(temp); check = false;}//..
+                else if (temp == routeQ.peek().dwn) {routeQ.enque(temp); check = false;}//..
                 else {
-                    routeQ.deque();
+                    routeQ.deque();i++;
                 }
             }
         }
         routeQ.enque(routeQ.deque()); //putting the last element (start node)
-        Point[] route = new Point[routeQ.size()];
-        for (int i=routeQ.size()-1; i>=0; i--){
+        routeQSize = routeQ.size();
+        Point[] route = new Point[routeQSize];
+        for (int i=routeQSize-1; i>=0; i--){
             route[i] = routeQ.deque().coord;
         }        
         return route;
@@ -453,42 +449,37 @@ public class MazeSolver {
         Node temp;
         boolean check;
         searchQ.enque(start); //add start to searching queue
-        //routeQ.enque(start); //add start to route queue
         start.visited = true; //mark start node as visited
         while (!searchQ.isEmpty()){
-            temp = searchQ.deque();
+            temp = searchQ.deque(); //temp stores the peek of searchQ
             
             check = false;
-            if(temp == goal){
+            if(temp == goal){ //goal found
                 routeQ.enque(temp);
                 return traceBFSRoute(routeQ);
             }
             else{
-                if (temp.rit != null && temp.rit.visited == false){ //check if current node has right child
+                if (temp.rit != null && temp.rit.visited == false){ //check if current node has right not visited child
                     searchQ.enque(temp.rit); //add this child to searching queue
                     temp.rit.visited = true; //mark as visited
                     check = true;
-                    // System.out.println(temp.rit.coord);
                 }
-                if (temp.up != null && temp.up.visited == false){ //check if current node has up child
+                if (temp.up != null && temp.up.visited == false){ //check if current node has up not visited child
                     searchQ.enque(temp.up); //add this child to searching queue
                     temp.up.visited = true; //mark as visited
                     check = true;
-                    // System.out.println(temp.up.coord);
                 }
-                if (temp.lft != null && temp.lft.visited == false){ //check if current node has left child
+                if (temp.lft != null && temp.lft.visited == false){ //check if current node has left not visited child
                     searchQ.enque(temp.lft); //add this child to searching queue
                     temp.lft.visited = true; //mark as visited
                     check = true;
-                    // System.out.println(temp.lft.coord);
                 }
-                if (temp.dwn != null && temp.dwn.visited == false){ //check if current node has down child
+                if (temp.dwn != null && temp.dwn.visited == false){ //check if current node has down not visited child
                     searchQ.enque(temp.dwn); //add this child to searching queue
                     temp.dwn.visited = true; //mark as visited
                     check = true;
-                    // System.out.println(temp.dwn.coord);
                 }
-                if (check) routeQ.enque(temp); //if any child is found from current node (temp) it will be added to routeQ
+                if (check){routeQ.enque(temp);} //if any child is found from current node (temp) it will be added to routeQ
             }
         }
         return null;
@@ -502,6 +493,8 @@ public class MazeSolver {
 
 
     public static void main(String[] args){
+        String typeOfSearch = new Scanner(System.in).nextLine();
+
         MazeSolver program = new MazeSolver();
         String[] mazeArray = program.mapArrayReader();
         if (mazeArray == null) return;
@@ -526,8 +519,21 @@ public class MazeSolver {
             System.out.println("Error: No/more than one Goal is found!");
             return;
         }
-        Point[] route = program.BFS();
+        Point[] route;
+        switch (typeOfSearch){
+            case "BFS" : 
+                route = program.BFS();
+                break;
+            case "DFS" :
+                route = program.DFS();
+                break;
+            default :
+                System.out.println("Error: No such type of search is available in this program!");
+                return;
+        }
+        //printing route 
         if (route != null) printRoute(route);
         else System.out.println("Pass not found!");
+
     }
 }
