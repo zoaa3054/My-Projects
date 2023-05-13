@@ -500,19 +500,21 @@ public class MazeSolver {
         if (mazeArray == null) return;
         int r=0; int c=0;
         MapStartAndGoal startAndGoalNodes = new MapStartAndGoal(null, null);
-        while (r<mazeArray.length && mazeArray[r].charAt(c)=='#'){
+        //Start drawing the maze form Start node
+        while (r<mazeArray.length && mazeArray[r].charAt(c)!='S'){
             if(c==mazeArray[0].length()-1){c=0; r++;}
             else c++;
         }
-        
+
         if (r==mazeArray.length){
-            System.out.println("All the maze is walls:)");
+            System.out.println("No Start is found");
             return;
         }else{ 
             startAndGoalNodes = program.mapCreator(mazeArray, r, c, "no_move");
         }
+
         if (startAndGoalNodes.start==null || startAndGoalNodes.start.coord.getX()==-1){
-            System.out.println("Error: No/more than one Start is found!");
+            System.out.println("Error: More than one Start is found!");
             return;
         }
         else if (startAndGoalNodes.goal==null || startAndGoalNodes.goal.coord.getX()==-1){
